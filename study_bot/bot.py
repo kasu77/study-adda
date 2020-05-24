@@ -4,7 +4,11 @@ import json
 from . import cogs
 
 study_bot = Bot(".")
-cogs.add_cogs(study_bot)
+
+@study_bot.event
+async def on_ready():
+    cogs.add_cogs(study_bot)
+    print('Bot loaded')
 
 def main():
     """Entry point of the bot"""
