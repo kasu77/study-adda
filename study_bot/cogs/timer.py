@@ -8,17 +8,22 @@ import asyncio
 class Timer(Cog):
      
     @command('timer')
-    async def timer(self, ctx: Context, *time):
+    async def timer(self, ctx: Context, *args):
         """Set a new timer
-        Pass it the duration in format Xh Xm Xs with all params optional"""
+        Pass it the duration in format XhXmXs with all params optional and a reason for the timer"""
 
-        time = ' '.join(time)
+        if len(args) < 2:
+            await ctx.send("That's not how you use this command. Use help!")
+            return
+
+        time = args[0]
+        reason = ' '.join(args[1:])
 
         if time == '' or time.isspace():
             await ctx.send('You gotta say how much time to wait kiddo')
             return
 
-        duration_pattern = re.compile('^((?P<hours>\\d+)h)?(\\s*(?P<minutes>\\d*)m)?(\\s*(?P<seconds>\\d+)s)?$')
+        duration_pattern = re.compile('^((?P<hours>\\d+)h)?((?P<minutes>\\d+)m)?((?P<seconds>\\d+)s)?$')
         match = duration_pattern.match(time)
          
         if match == None:
@@ -40,18 +45,7 @@ class Timer(Cog):
             await ctx.send('You want me to wait zero seconds lol? oK tHeN smh')
             return 0
 
-        await ctx.send('Send a reason for this timer within 10 seconds')
-
-        def check(message: Message):
-            return message.channel == ctx.channel and message.author == ctx.author
-
-        try:
-            reason_msg = await ctx.bot.wait_for('message', check=check, timeout=10)
-        except asyncio.TimeoutError:
-            await ctx.send(f"{ctx.author.mention} you took so long to type a reason. No timers for you.")
-            return
-
-        await self.schedule(duration, reason_msg.content, ctx.author, ctx.channel)
+        await self.schedule(duration, reason, ctx.author, ctx.channel)
         await ctx.send(f"There ya go. I'll ping you in {hours}h {minutes}m {sec}s :>")
 
     async def schedule(self, duration: int, reason, owner: User, channel: TextChannel):
