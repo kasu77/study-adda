@@ -45,7 +45,7 @@ class Timer(Cog):
         minutes = value_or_zero(duration_dict['minutes'])
         hours = value_or_zero(duration_dict['hours'])
         
-        duration = sec + (minutes * 60) + (hours * 60)
+        duration = sec + (minutes * 60) + (hours * 60 * 60)
 
         if duration == 0:
             await ctx.send('You want me to wait zero seconds lol? oK tHeN smh')
