@@ -1,5 +1,6 @@
 from typing import List
 import os
+import sys
 import time
 import sqlalchemy
 from sqlalchemy import Column, Integer, String
@@ -31,7 +32,12 @@ class TimersRepo():
         """Add timer to db"""
 
         self.db_session.add(timer)
-        self.db_session.commit()
+
+        try:
+            self.db_session.commit()
+        except Exception as e:
+            self.db_session.rollback()
+            print(f'Error while adding new timer to db: {e}', file=sys.stderr)
 
     def get_all_timers_for_channel(self, channel_id: int, guild_id: int) -> List[Timer]:
         """Returns a list of all active timers in the given channel of the guild"""
@@ -46,7 +52,12 @@ class TimersRepo():
         """Removes a timer from db"""
 
         self.db_session.delete(timer)
-        self.db_session.commit()
+
+        try:
+            self.db_session.commit()
+        except Exception as e:
+            self.db_session.rollback()
+            print(f'Error while deleting timer from db: {e}', file=sys.stderr)
     
     def get_all_timers(self) -> List[Timer]:
         """Returns a list of ALL the active timers in the db"""
