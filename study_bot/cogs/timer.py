@@ -96,6 +96,8 @@ class Timer(Cog):
 
         async def timer_task():
             await asyncio.sleep(timer.time - time.time())
+
+            self.repo.finish_timer(timer)
             channel = bot.get_guild(timer.guild_id).get_channel(timer.channel_id)
             await channel.send(f"<@{timer.user_id}> Yo you there? Your timer called \"{timer.reason}\" is done, don't be dead!")
 

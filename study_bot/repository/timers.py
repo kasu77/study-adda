@@ -41,6 +41,12 @@ class TimersRepo():
             .filter(Timer.channel_id == channel_id)\
             .filter(Timer.time > int(time.time()))\
             .all()
+
+    def finish_timer(self, timer: Timer):
+        """Removes a timer from db"""
+
+        self.db_session.delete(timer)
+        self.db_session.commit()
     
     def get_all_timers(self) -> List[Timer]:
         """Returns a list of ALL the active timers in the db"""
