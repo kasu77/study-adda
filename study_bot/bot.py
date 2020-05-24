@@ -3,7 +3,7 @@ import json
 
 from . import cogs
 
-study_bot = Bot("+")
+study_bot = Bot(".")
 cogs.add_cogs(study_bot)
 
 def main():
