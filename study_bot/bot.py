@@ -3,7 +3,7 @@ import json
 
 from . import cogs
 
-study_bot = Bot("+")
+study_bot = Bot(".")
 
 @study_bot.event
 async def on_ready():
