@@ -1,5 +1,5 @@
 from discord.ext.commands import Cog, command, Context, Bot
-from discord import User, TextChannel, Message, Embed
+from discord import User, TextChannel, Message, Embed, Color
 import asyncio
 import re
 import time
@@ -64,7 +64,7 @@ class Timer(Cog):
 
         await ctx.send(f"There ya go. I'll ping you in {hours}h {minutes}m {sec}s :>")
 
-    @command(name='showtimers')
+    @command(name='showtimers', aliases=['timers', 'st'])
     async def show_timers(self, ctx: Context):
         """Lists the timers in this channel"""
 
@@ -75,7 +75,7 @@ class Timer(Cog):
         embed_content = ""
         count = 0
         for timer in self.repo.get_all_timers_for_channel(ctx.channel.id, ctx.guild.id):
-            embed_content += f"**[{count + 1}]** <@{timer.user_id}> ({format_duration(timer.time)}) - {timer.reason}\n"
+            embed_content += f"**\\[#{timer.id}\\]** <@{timer.user_id}> ({format_duration(timer.time)}) - {timer.reason}\n"
             count += 1
 
         embed = Embed(
@@ -85,26 +85,85 @@ class Timer(Cog):
 
         await ctx.send(embed=embed)
 
+    @command(name='mytimers', aliases=['mt'])
+    async def user_timers(self, ctx: Context):
+        """View your timers
+        Shows all the timers in the channel that were started by you"""
+
+        def format_duration(unix_time):
+            duration = unix_time - int(time.time()) #Round to int as we don't have to deal with milliseconds component
+            return str(timedelta(seconds=duration))
+
+        embed_content = ""
+        count = 0
+        for timer in self.repo.get_user_timers_for_channel(ctx.author.id, ctx.channel.id, ctx.guild.id):
+            embed_content += f'**\\[#{timer.id}\\]** ({format_duration(timer.time)}) - {timer.reason}\n'
+            count += 1
+
+        embed = Embed(
+            title=f"You have {count} timers running",
+            description=embed_content,
+            color=Color.green()
+        )
+
+        await ctx.send(embed=embed)
+
+    @command(name='canceltimer', aliases=['ct', 'dismis'])
+    async def cancel_timer(self, ctx: Context, *args):
+        """Cancel a timer
+        Cancels a timer with given id. The timer must be started by you"""
+
+        if len(args) != 1:
+            await ctx.send('Please pass id of the timer you wish to cancel. Get the ids using "mytimers" command')
+            return
+
+        try:
+            to_cancel = int(args[0])
+        except ValueError:
+            await ctx.send("That doesn't looks like a timer id to me ;-;")
+            return
+
+        timer = self.repo.get_timer_by_id(to_cancel)
+
+        if timer == None:
+            await ctx.send("Are you kidding? there's no such timer in my records")
+            return
+
+        if timer.user_id != ctx.author.id:
+            await ctx.send("That timer doesn't belong to you. You can only cancel timers started by you")
+            return
+
+        self.repo.finish_timer(timer)
+
+        #Restart ticker task
+        self.ticker_task.cancel()
+        self.start_ticker(ctx.bot)
+
+        await ctx.send(f'Canceled timer #{timer.id}')
+
     def new_timer(self, bot: Bot, timer: repository.Timer):
         """Adds a timer to db and schedules it"""
 
         self.repo.add_timer(timer)
-        self.schedule(bot, timer)
 
-    def schedule(self, bot: Bot, timer: repository.Timer):
-        """Schedules a timer task for given duration"""
+    def start_ticker(self, bot: Bot) -> asyncio.Task:
+        """Starts a task which iterates over all timer and triggers the message if they are due"""
 
-        async def timer_task():
-            await asyncio.sleep(timer.time - time.time())
+        async def ticker_task():
+            await bot.wait_until_ready()
 
-            self.repo.finish_timer(timer)
-            channel = bot.get_guild(timer.guild_id).get_channel(timer.channel_id)
-            await channel.send(f"<@{timer.user_id}> Yo you there? Your timer called \"{timer.reason}\" is done, don't be dead!")
+            try:
+                while True:
+                    await asyncio.sleep(1.0)
 
-        asyncio.create_task(timer_task())
+                    #TODO: This might not be very efficient, might change it in future
+                    for timer in self.repo.get_timers_trigger():
+                        channel = bot.get_guild(timer.guild_id).get_channel(timer.channel_id)
+                        await channel.send(f"<@{timer.user_id}> Yo you there? Your timer called \"{timer.reason}\" is done, don't be dead!")
+                        self.repo.finish_timer(timer)
 
-    def schedule_all_from_db(self, bot: Bot):
-        """Loads all timers from db and schedules them"""
+            except asyncio.CancelledError:
+                pass
 
-        for timer in self.repo.get_all_timers():
-            self.schedule(bot, timer)
+        #Store a reference to this task
+        self.ticker_task = asyncio.create_task(ticker_task())

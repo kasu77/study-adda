@@ -45,8 +45,23 @@ class TimersRepo():
         return self.db_session.query(Timer)\
             .filter(Timer.guild_id == guild_id)\
             .filter(Timer.channel_id == channel_id)\
-            .filter(Timer.time > int(time.time()))\
             .all()
+
+    def get_user_timers_for_channel(self, user_id: int, channel_id: int, guild_id: int) -> List[Timer]:
+        """Returns a list of all the timers in the channel belonging to given user"""
+
+        return self.db_session.query(Timer)\
+            .filter(Timer.guild_id == guild_id)\
+            .filter(Timer.channel_id == channel_id)\
+            .filter(Timer.user_id == user_id)\
+            .all()
+
+    def get_timer_by_id(self, id: int) -> Timer:
+        """Returns the timer referenced by the given id"""
+
+        return self.db_session.query(Timer)\
+            .filter(Timer.id == id)\
+            .first()
 
     def finish_timer(self, timer: Timer):
         """Removes a timer from db"""
@@ -59,9 +74,9 @@ class TimersRepo():
             self.db_session.rollback()
             print(f'Error while deleting timer from db: {e}', file=sys.stderr)
     
-    def get_all_timers(self) -> List[Timer]:
-        """Returns a list of ALL the active timers in the db"""
+    def get_timers_trigger(self) -> List[Timer]:
+        """Returns the list of timers that need to be triggred by now"""
 
         return self.db_session.query(Timer)\
-            .filter(Timer.time > int(time.time()))\
+            .filter(Timer.time < int(time.time()))\
             .all()
