@@ -75,7 +75,7 @@ class Timer(Cog):
         embed_content = ""
         count = 0
         for timer in self.repo.get_all_timers_for_channel(ctx.channel.id, ctx.guild.id):
-            embed_content += f"**[{count + 1}]** <@{timer.user_id}> ({format_duration(timer.time)}) - {timer.reason}"
+            embed_content += f"**[{count + 1}]** <@{timer.user_id}> ({format_duration(timer.time)}) - {timer.reason}\n"
             count += 1
 
         embed = Embed(
