@@ -27,6 +27,8 @@ class TimersRepo():
     def __init__(self):
         self.db_session = DBSession()
 
+    def close(self):
+        self.db_session.close()
 
     def add_timer(self, timer: Timer):
         """Add timer to db"""

@@ -167,3 +167,7 @@ class Timer(Cog):
 
         #Store a reference to this task
         self.ticker_task = asyncio.create_task(ticker_task())
+
+    def close(self):
+        """Closes the connection with repository"""
+        self.repo.close()
