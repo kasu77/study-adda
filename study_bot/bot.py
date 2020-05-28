@@ -2,25 +2,21 @@ from discord.ext.commands import Bot
 import json
 
 from . import cogs
+from .data import Repository
 
 class StudyBot(Bot):
 
     def __init__(self):
         super().__init__(command_prefix='.')
-        self.timer_cog = cogs.Timer()
-        self.add_cog(self.timer_cog)
-        self.add_cog(cogs.Misc())
-
-    async def start(self, *args, **kwargs):
-        await self.timer_cog.schedule_timers_from_db(self)
-        await super().start(*args, **kwargs)
+        self.repository = Repository()
+        cogs.add_all(self)
 
     async def on_ready(self):
         print('Bot loaded')
 
     async def close(self):
         await super().close()
-        self.timer_cog.close()
+        self.repository.close()
         print('Bot exited')
 
 def main():

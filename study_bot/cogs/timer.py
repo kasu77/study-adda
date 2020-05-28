@@ -5,17 +5,27 @@ import re
 import time
 from datetime import timedelta
 
-from .. import repository
+from ..data import Timer, Repository
 
-class Timer(Cog):
+class TimerCog(Cog):
 
     def __init__(self):
         super().__init__()
-        self.repo = repository.TimersRepo()
 
         #A dictionary of asyncio tasks corresponding to scheduled timers
         #Key: Timer.id; value: Task object
         self.timer_tasks = dict()
+
+    def _inject(self, bot):
+        """This is overriden to save the instance of the bot"""
+
+        self.bot = bot
+        self.dao = bot.repository.timers_dao
+        return super()._inject(bot)
+
+    @Cog.listener()
+    async def on_connect(self):
+        await self.schedule_timers_from_db(self.bot)
      
     @command('timer')
     async def timer(self, ctx: Context, *args):
@@ -55,7 +65,7 @@ class Timer(Cog):
             await ctx.send('You want me to wait zero seconds lol? oK tHeN smh')
             return 0
 
-        timer = repository.Timer(
+        timer = Timer(
             time = int(time.time()) + duration,
             user_id = ctx.author.id,
             channel_id = ctx.channel.id,
@@ -63,7 +73,7 @@ class Timer(Cog):
             reason = reason
         )
 
-        self.repo.add_timer(timer)
+        self.dao.add_timer(timer)
         await self.schedule_timer(timer, ctx.bot)
         
         await ctx.send(f"There ya go. I'll ping you in {hours}h {minutes}m {sec}s :>")
@@ -78,7 +88,7 @@ class Timer(Cog):
 
         embed_content = ""
         count = 0
-        for timer in self.repo.get_all_timers_for_channel(ctx.channel.id, ctx.guild.id):
+        for timer in self.dao.get_all_timers_for_channel(ctx.channel.id, ctx.guild.id):
             embed_content += f"**\\[#{timer.id}\\]** <@{timer.user_id}> ({format_duration(timer.time)}) - {timer.reason}\n"
             count += 1
 
@@ -100,7 +110,7 @@ class Timer(Cog):
 
         embed_content = ""
         count = 0
-        for timer in self.repo.get_user_timers_for_channel(ctx.author.id, ctx.channel.id, ctx.guild.id):
+        for timer in self.dao.get_user_timers_for_channel(ctx.author.id, ctx.channel.id, ctx.guild.id):
             embed_content += f'**\\[#{timer.id}\\]** ({format_duration(timer.time)}) - {timer.reason}\n'
             count += 1
 
@@ -127,7 +137,7 @@ class Timer(Cog):
             await ctx.send("That doesn't looks like a timer id to me ;-;")
             return
 
-        timer = self.repo.get_timer_by_id(to_cancel)
+        timer = self.dao.get_timer_by_id(to_cancel)
 
         if timer == None:
             await ctx.send("Are you kidding? there's no such timer in my records")
@@ -140,38 +150,30 @@ class Timer(Cog):
         #Cancel and delete the task and timer
         self.timer_tasks[timer.id].cancel()
         del self.timer_tasks[timer.id]
-        self.repo.finish_timer(timer)
+        self.dao.finish_timer(timer)
 
         await ctx.send(f'Canceled timer #{timer.id}')
 
-    async def schedule_timer(self, timer: repository.Timer, bot: Bot):
+    async def schedule_timer(self, timer: Timer, bot: Bot):
         """Schedules a timer as a task"""
 
         async def timer_task():
+            #Wait
+            await bot.wait_until_ready()
+            await asyncio.sleep(max(timer.time - time.time(), 0))
 
-            try:
-                #Wait
-                await bot.wait_until_ready()
-                await asyncio.sleep(max(timer.time - time.time(), 0))
+            #Trigger
+            channel = bot.get_guild(timer.guild_id).get_channel(timer.channel_id)
+            await channel.send(f"<@{timer.user_id}> Yo you there? Your timer called \"{timer.reason}\" is done, don't be dead!")
 
-                #Trigger
-                channel = bot.get_guild(timer.guild_id).get_channel(timer.channel_id)
-                await channel.send(f"<@{timer.user_id}> Yo you there? Your timer called \"{timer.reason}\" is done, don't be dead!")
-
-                #Cleanup
-                del self.timer_tasks[timer.id]
-            finally: #Avoid skipping db cleanup in case of an exception
-                self.repo.finish_timer(timer)
+            #Cleanup
+            del self.timer_tasks[timer.id]
+            self.dao.finish_timer(timer)
 
         self.timer_tasks[timer.id] = asyncio.create_task(timer_task())
 
     async def schedule_timers_from_db(self, bot: Bot):
         """Schedules all timers in db"""
 
-        for timer in self.repo.get_all_timers():
+        for timer in self.dao.get_all_timers():
             await self.schedule_timer(timer, bot)
-
-    def close(self):
-        """Closes the connection with repository"""
-
-        self.repo.close()

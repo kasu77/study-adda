@@ -1,33 +1,16 @@
 from typing import List, Union
-import os
 import sys
-import time
-import sqlalchemy
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
+from .orm import Timer
 
-class Timer(Base):
-    __tablename__ = 'timer'
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, nullable=False)
-    time = Column(Integer, nullable=False)
-    channel_id = Column(Integer, nullable=False)
-    guild_id = Column(Integer, nullable=False)
-    reason = Column(String, nullable=False)
-
-db_path = 'sqlite:////' + os.path.join(os.path.abspath(os.curdir), 'database.db')
-engine = sqlalchemy.create_engine(db_path)
-Base.metadata.create_all(engine)
-Base.metadata.bind = engine
-DBSession = sqlalchemy.orm.sessionmaker(bind=engine)
-
-class TimersRepo():
-    def __init__(self):
-        self.db_session = DBSession()
+class TimersDao():
+    def __init__(self, db_session):
+        self.db_session = db_session
 
     def close(self):
+        """Closes connection with db"""
+
+        self.db_session.commit()
         self.db_session.close()
 
     def add_timer(self, timer: Timer):
