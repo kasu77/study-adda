@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 import os
 import sys
 import time
@@ -76,9 +76,8 @@ class TimersRepo():
             self.db_session.rollback()
             print(f'Error while deleting timer from db: {e}', file=sys.stderr)
     
-    def get_timers_trigger(self) -> List[Timer]:
-        """Returns the list of timers that need to be triggred by now"""
+    def get_all_timers(self) -> List[Timer]:
+        """Returns the list of all timers in db"""
 
         return self.db_session.query(Timer)\
-            .filter(Timer.time < int(time.time()))\
             .all()

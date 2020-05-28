@@ -11,8 +11,11 @@ class StudyBot(Bot):
         self.add_cog(self.timer_cog)
         self.add_cog(cogs.Misc())
 
+    async def start(self, *args, **kwargs):
+        await self.timer_cog.schedule_timers_from_db(self)
+        await super().start(*args, **kwargs)
+
     async def on_ready(self):
-        self.timer_cog.start_ticker(self)
         print('Bot loaded')
 
     async def close(self):

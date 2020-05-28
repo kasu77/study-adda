@@ -12,6 +12,10 @@ class Timer(Cog):
     def __init__(self):
         super().__init__()
         self.repo = repository.TimersRepo()
+
+        #A dictionary of asyncio tasks corresponding to scheduled timers
+        #Key: Timer.id; value: Task object
+        self.timer_tasks = dict()
      
     @command('timer')
     async def timer(self, ctx: Context, *args):
@@ -51,17 +55,17 @@ class Timer(Cog):
             await ctx.send('You want me to wait zero seconds lol? oK tHeN smh')
             return 0
 
-        self.new_timer(
-            ctx.bot,            
-            repository.Timer(
-                time = int(time.time()) + duration,
-                user_id = ctx.author.id,
-                channel_id = ctx.channel.id,
-                guild_id = ctx.guild.id,
-                reason = reason
-            )
+        timer = repository.Timer(
+            time = int(time.time()) + duration,
+            user_id = ctx.author.id,
+            channel_id = ctx.channel.id,
+            guild_id = ctx.guild.id,
+            reason = reason
         )
 
+        self.repo.add_timer(timer)
+        await self.schedule_timer(timer, ctx.bot)
+        
         await ctx.send(f"There ya go. I'll ping you in {hours}h {minutes}m {sec}s :>")
 
     @command(name='showtimers', aliases=['timers', 'st'])
@@ -133,41 +137,41 @@ class Timer(Cog):
             await ctx.send("That timer doesn't belong to you. You can only cancel timers started by you")
             return
 
+        #Cancel and delete the task and timer
+        self.timer_tasks[timer.id].cancel()
+        del self.timer_tasks[timer.id]
         self.repo.finish_timer(timer)
-
-        #Restart ticker task
-        self.ticker_task.cancel()
-        self.start_ticker(ctx.bot)
 
         await ctx.send(f'Canceled timer #{timer.id}')
 
-    def new_timer(self, bot: Bot, timer: repository.Timer):
-        """Adds a timer to db and schedules it"""
+    async def schedule_timer(self, timer: repository.Timer, bot: Bot):
+        """Schedules a timer as a task"""
 
-        self.repo.add_timer(timer)
-
-    def start_ticker(self, bot: Bot) -> asyncio.Task:
-        """Starts a task which iterates over all timer and triggers the message if they are due"""
-
-        async def ticker_task():
-            await bot.wait_until_ready()
+        async def timer_task():
 
             try:
-                while True:
-                    await asyncio.sleep(1.0)
+                #Wait
+                await bot.wait_until_ready()
+                await asyncio.sleep(max(timer.time - time.time(), 0))
 
-                    #TODO: This might not be very efficient, might change it in future
-                    for timer in self.repo.get_timers_trigger():
-                        channel = bot.get_guild(timer.guild_id).get_channel(timer.channel_id)
-                        await channel.send(f"<@{timer.user_id}> Yo you there? Your timer called \"{timer.reason}\" is done, don't be dead!")
-                        self.repo.finish_timer(timer)
+                #Trigger
+                channel = bot.get_guild(timer.guild_id).get_channel(timer.channel_id)
+                await channel.send(f"<@{timer.user_id}> Yo you there? Your timer called \"{timer.reason}\" is done, don't be dead!")
 
-            except asyncio.CancelledError:
-                pass
+                #Cleanup
+                del self.timer_tasks[timer.id]
+            finally: #Avoid skipping db cleanup in case of an exception
+                self.repo.finish_timer(timer)
 
-        #Store a reference to this task
-        self.ticker_task = asyncio.create_task(ticker_task())
+        self.timer_tasks[timer.id] = asyncio.create_task(timer_task())
+
+    async def schedule_timers_from_db(self, bot: Bot):
+        """Schedules all timers in db"""
+
+        for timer in self.repo.get_all_timers():
+            await self.schedule_timer(timer, bot)
 
     def close(self):
         """Closes the connection with repository"""
+
         self.repo.close()
