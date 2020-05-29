@@ -3,6 +3,7 @@ from discord import User, TextChannel, Message, Embed, Color
 import asyncio
 import re
 import time
+import sys
 from datetime import timedelta
 
 from ..data import Timer, Repository
@@ -16,16 +17,22 @@ class TimerCog(Cog):
         #Key: Timer.id; value: Task object
         self.timer_tasks = dict()
 
+        #A flag indicating weather timers from  db were scheduled
+        self.db_scheduled = False
+
     def _inject(self, bot):
         """This is overriden to save the instance of the bot"""
 
+        print('Injecting TimerCog')
+        
         self.bot = bot
         self.dao = bot.repository.timers_dao
         return super()._inject(bot)
 
     @Cog.listener()
     async def on_connect(self):
-        await self.schedule_timers_from_db(self.bot)
+        print('on_connect')
+        if not self.db_scheduled: await self.schedule_timers_from_db(self.bot)
      
     @command('timer')
     async def timer(self, ctx: Context, *args):
@@ -77,6 +84,7 @@ class TimerCog(Cog):
         await self.schedule_timer(timer, ctx.bot)
         
         await ctx.send(f"There ya go. I'll ping you in {hours}h {minutes}m {sec}s :>")
+        print('Started timer id=', timer.id)
 
     @command(name='showtimers', aliases=['timers', 'st'])
     async def show_timers(self, ctx: Context):
@@ -153,6 +161,7 @@ class TimerCog(Cog):
         self.dao.finish_timer(timer)
 
         await ctx.send(f'Canceled timer #{timer.id}')
+        print('Canceled timer id=', timer.id)
 
     async def schedule_timer(self, timer: Timer, bot: Bot):
         """Schedules a timer as a task"""
@@ -166,14 +175,22 @@ class TimerCog(Cog):
             channel = bot.get_guild(timer.guild_id).get_channel(timer.channel_id)
             await channel.send(f"<@{timer.user_id}> Yo you there? Your timer called \"{timer.reason}\" is done, don't be dead!")
 
+            print("Finishing timer id=", timer.id)
+
             #Cleanup
-            del self.timer_tasks[timer.id]
+            try:
+                del self.timer_tasks[timer.id]
+            except KeyError:
+                print("KeyError while cleaning up timer id=", timer.id, file=sys.stderr)
+
             self.dao.finish_timer(timer)
 
         self.timer_tasks[timer.id] = asyncio.create_task(timer_task())
 
     async def schedule_timers_from_db(self, bot: Bot):
         """Schedules all timers in db"""
+
+        print('Scheduling timers from db.')
 
         for timer in self.dao.get_all_timers():
             await self.schedule_timer(timer, bot)
