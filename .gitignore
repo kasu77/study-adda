@@ -2,3 +2,4 @@
 /.vscode/**
 /config.json
 /database.db
+/bot.log

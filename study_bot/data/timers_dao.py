@@ -1,7 +1,10 @@
 from typing import List, Union
 import sys
+import logging
 
 from .orm import Timer
+
+log = logging.getLogger('botlog')
 
 class TimersDao():
     def __init__(self, db_session):
@@ -21,8 +24,8 @@ class TimersDao():
         try:
             self.db_session.commit()
         except Exception as e:
+            log.error(f'Error while adding new timer to db: {e}. Rolling back')
             self.db_session.rollback()
-            print(f'Error while adding new timer to db: {e}', file=sys.stderr)
 
     def get_all_timers_for_channel(self, channel_id: int, guild_id: int) -> List[Timer]:
         """Returns a list of all active timers in the given channel of the guild"""
@@ -56,8 +59,8 @@ class TimersDao():
         try:
             self.db_session.commit()
         except Exception as e:
+            log.error(f'Error while deleting timer from db: {e}. Rolling back')
             self.db_session.rollback()
-            print(f'Error while deleting timer from db: {e}', file=sys.stderr)
     
     def get_all_timers(self) -> List[Timer]:
         """Returns the list of all timers in db"""
