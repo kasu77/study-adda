@@ -32,7 +32,9 @@ class TimerCog(Cog):
     @Cog.listener()
     async def on_connect(self):
         print('on_connect')
-        if not self.db_scheduled: await self.schedule_timers_from_db(self.bot)
+        if not self.db_scheduled:
+            self.db_scheduled = True
+            await self.schedule_timers_from_db(self.bot)
      
     @command('timer')
     async def timer(self, ctx: Context, *args):
@@ -184,6 +186,11 @@ class TimerCog(Cog):
                 print("KeyError while cleaning up timer id=", timer.id, file=sys.stderr)
 
             self.dao.finish_timer(timer)
+
+        #Check if the timer with the same id is already present in the dict
+        if timer.id in self.timer_tasks.keys():
+            print('[ WARN ]', 'Tried to re-schedule timer. id=', timer.id, file=sys.stderr)
+            return
 
         self.timer_tasks[timer.id] = asyncio.create_task(timer_task())
 
