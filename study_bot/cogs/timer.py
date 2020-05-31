@@ -89,7 +89,7 @@ class TimerCog(Cog):
         await self.schedule_timer(timer, ctx.bot)
         
         await ctx.send(f"There ya go. I'll ping you in {hours}h {minutes}m {sec}s :>")
-        log.info('Started timer id=' + timer.id)
+        log.info(f'Started timer id={timer.id}')
 
     @command(name='showtimers', aliases=['timers', 'st'])
     async def show_timers(self, ctx: Context):
@@ -166,7 +166,7 @@ class TimerCog(Cog):
         self.dao.finish_timer(timer)
 
         await ctx.send(f'Canceled timer #{timer.id}')
-        log.infot('Canceled timer id=' + timer.id)
+        log.info(f'Canceled timer id={timer.id}')
 
     async def schedule_timer(self, timer: Timer, bot: Bot):
         """Schedules a timer as a task"""
@@ -180,19 +180,19 @@ class TimerCog(Cog):
             channel = bot.get_guild(timer.guild_id).get_channel(timer.channel_id)
             await channel.send(f"<@{timer.user_id}> Yo you there? Your timer called \"{timer.reason}\" is done, don't be dead!")
 
-            log.info("Finishing timer id=" + timer.id)
+            log.info(f"Finishing timer id={timer.id}")
 
             #Cleanup
             try:
                 del self.timer_tasks[timer.id]
             except KeyError:
-                log.error("KeyError while cleaning up timer id=" + timer.id)
+                log.error(f'KeyError while cleaning up timer id={timer.id}')
 
             self.dao.finish_timer(timer)
 
         #Check if the timer with the same id is already present in the dict
         if timer.id in self.timer_tasks.keys():
-            log.warn('Tried to re-schedule timer. id=' + timer.id)
+            log.warn(f'Tried to re-schedule timer. id={timer.id}')
             return
 
         self.timer_tasks[timer.id] = asyncio.create_task(timer_task())
