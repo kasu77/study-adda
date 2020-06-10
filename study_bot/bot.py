@@ -24,4 +24,4 @@ def main():
     
     with open('config.json') as fp:
         config = json.loads(fp.read())
-    StudyBot().run(config['NzE5OTI0MjY4NDA5ODE1MDUx.XuCYHQ.hX7GUW4FbVG5hX9GwdFX1h-Y6no'])
+    StudyBot().run(config['token'])
